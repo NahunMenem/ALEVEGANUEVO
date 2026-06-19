@@ -199,12 +199,6 @@ button {
   font-size: 0.8rem;
 }
 
-.audit-detail {
-  display: inline-block;
-  max-width: 360px;
-  white-space: pre-wrap;
-  word-break: break-word;
-}
 
 .disabled-link {
   pointer-events: none;

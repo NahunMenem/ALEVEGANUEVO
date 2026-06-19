@@ -5,7 +5,6 @@ import { redirect } from "next/navigation";
 import type { PoolClient } from "pg";
 import { clearCart, getCart, setCart } from "@/lib/cart";
 import { loginWithPassword, logout, requireSession } from "@/lib/auth";
-import { logAudit } from "@/lib/audit";
 import { getPool, sql } from "@/lib/db";
 import { setLastSaleReceipt } from "@/lib/sale-receipt";
 import { ensureEgresosRepairLinkSchema, ensureSplitPaymentSchema } from "@/lib/data";
@@ -89,12 +88,17 @@ async function requireAdminSession() {
   return session;
 }
 
-async function safeAudit(params: Parameters<typeof logAudit>[0]) {
-  try {
-    await logAudit(params);
-  } catch (error) {
-    console.error("No se pudo guardar la auditoria", error);
-  }
+type AuditPayload = {
+  username: string;
+  action: string;
+  entityType: string;
+  entityId?: number | string | null;
+  summary: string;
+  detail?: string | null;
+};
+
+async function safeAudit(params: AuditPayload) {
+  void params;
 }
 
 export async function loginAction(formData: FormData) {

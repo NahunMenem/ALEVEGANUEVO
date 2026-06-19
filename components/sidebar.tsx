@@ -11,10 +11,8 @@ import {
   LayoutDashboard,
   Menu,
   Package,
-  Shield,
   ShoppingCart,
   Star,
-  Stethoscope,
   Wallet,
   Wrench,
   X,
@@ -35,7 +33,6 @@ const links = [
   { href: "/mercaderia_fallada", label: "Mercaderia fallada", Icon: XCircle },
   { href: "/productos_mas_vendidos", label: "Top productos", Icon: Star },
   { href: "/productos_por_agotarse", label: "Por agotarse", Icon: AlertTriangle },
-  { href: "/asignacion_manual", label: "Asignacion manual", Icon: Stethoscope }
 ];
 
 export function Sidebar({ username, role }: { username: string; role: string }) {
@@ -46,7 +43,6 @@ export function Sidebar({ username, role }: { username: string; role: string }) 
       ? [
           { href: "/dashboard", label: "Dashboard", Icon: BarChart3 },
           ...links,
-          { href: "/auditoria", label: "Auditoria", Icon: Shield }
         ]
       : links;
 

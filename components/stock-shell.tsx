@@ -97,13 +97,13 @@ export function StockShell({
           <div className="actions">
             {role === "admin" ? (
               <Modal
-                description="Se borraran todos los productos que hoy tengan stock en 0. La accion quedara auditada."
+                description="Se borraran todos los productos que hoy tengan stock en 0."
                 title="Confirmar borrado masivo"
                 triggerClassName="button danger"
                 triggerLabel="Borrar stock 0"
               >
                 <form action={deleteZeroStockProductsAction} className="stack">
-                  <p className="muted">Esta accion eliminara todos los productos con stock 0 y dejara registro en auditoria.</p>
+                  <p className="muted">Esta accion eliminara todos los productos con stock 0.</p>
                   <div className="actions">
                     <button className="button danger" type="submit">
                       Si, borrar todo el stock 0
@@ -255,7 +255,7 @@ export function StockShell({
                         </Modal>
                         {role === "admin" ? (
                           <Modal
-                            description={`Se eliminara ${producto.nombre} y la accion quedara auditada.`}
+                            description={`Se eliminara ${producto.nombre}.`}
                             title="Confirmar eliminacion"
                             triggerClassName="button danger"
                             triggerLabel="Eliminar"
