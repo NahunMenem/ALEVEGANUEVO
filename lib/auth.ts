@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { sql } from "@/lib/db";
+import { assertSystemAccess } from "@/lib/system-access";
 import type { SessionUser } from "@/lib/types";
 
 const SESSION_COOKIE = "alejandro_vega_session";
@@ -46,6 +47,7 @@ export async function requireSession() {
   if (!session) {
     redirect("/login");
   }
+  await assertSystemAccess();
   return session;
 }
 

@@ -80,6 +80,11 @@ SESSION_SECRET=otra-clave-larga-y-segura
 
 El sistema consulta tablas sin prefijo, pero PostgreSQL usa `DB_SCHEMA` como `search_path`. Asi puede compartir la misma base con otros clientes sin mezclar ventas, stock, reparaciones ni caja.
 
+## Control De Abono
+
+El acceso se valida contra `public.sistemas_mensuales` usando `DB_SCHEMA=alejandro_vega`.
+Cuando faltan 5 dias o menos para vencer se muestra un aviso. El dia del vencimiento, o si el sistema esta suspendido, se bloquea el acceso hasta registrar el pago desde el panel central.
+
 ## Logo
 
 El logo principal esta en `public/logo.png`.
