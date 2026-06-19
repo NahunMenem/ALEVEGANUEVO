@@ -27,7 +27,6 @@ const links = [
   { href: "/registrar_venta", label: "Registrar venta", Icon: ShoppingCart },
   { href: "/agregar_stock", label: "Stock", Icon: Package },
   { href: "/ultimas_ventas", label: "Ultimas ventas", Icon: CreditCard },
-  { href: "/caja", label: "Caja", Icon: Calculator },
   { href: "/egresos", label: "Egresos", Icon: Wallet },
   { href: "/reparaciones", label: "Reparaciones", Icon: Wrench },
   { href: "/mercaderia_fallada", label: "Mercaderia fallada", Icon: XCircle },
@@ -42,6 +41,7 @@ export function Sidebar({ username, role }: { username: string; role: string }) 
     role === "admin"
       ? [
           { href: "/dashboard", label: "Dashboard", Icon: BarChart3 },
+          { href: "/caja", label: "Caja", Icon: Calculator },
           ...links,
         ]
       : links;
