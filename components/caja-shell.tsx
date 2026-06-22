@@ -3,6 +3,7 @@
 import { useState } from "react";
 import {
   Banknote,
+  BookOpen,
   Calculator,
   CalendarDays,
   CreditCard,
@@ -35,6 +36,8 @@ type CajaData = {
   ingresosPorPago: Record<string, number>;
   egresosPorPago: Record<string, number>;
   netoPorPago: Record<string, number>;
+  pagosCCPeriodo: number;
+  pagosCCPorPago: Record<string, number>;
 };
 
 const PAYMENT_META: Record<string, { label: string; icon: typeof Wallet }> = {
@@ -154,6 +157,15 @@ export function CajaShell({
         </section>
       </div>
 
+
+      {caja.pagosCCPeriodo > 0 && (
+        <section className="card stack">
+          <div className="dashboard-section-title"><BookOpen size={18} /><strong>Cobros de cuentas corrientes en el periodo</strong></div>
+          <div className="kpis">
+            <div className="card dashboard-kpi"><div className="dashboard-kpi-icon success"><BookOpen size={20} strokeWidth={2} /></div><div className="stat"><small>Total cobrado de CC</small><strong>{formatCurrency(caja.pagosCCPeriodo)}</strong><span className="kpi-meta">Pagos recibidos de cuentas corrientes</span></div></div>
+          </div>
+        </section>
+      )}
       <div className="grid cols-2">
         <section className="card stack">
           <div className="dashboard-section-title">

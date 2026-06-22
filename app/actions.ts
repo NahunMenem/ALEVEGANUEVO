@@ -1023,3 +1023,172 @@ export async function cancelRepairSaleAction(formData: FormData) {
   redirect(buildSuccessRedirect("/ultimas_ventas", "Reparacion anulada con exito."));
 }
 
+
+export async function createClienteAction(formData: FormData) {
+  const session = await requireSession();
+  const { ensureCuentaCorrienteSchema } = await import("@/lib/data");
+  await ensureCuentaCorrienteSchema();
+  const nombre = getString(formData, "nombre");
+  const telefono = getString(formData, "telefono");
+  const dni = getString(formData, "dni");
+
+  if (!nombre) {
+    redirect(buildErrorRedirect("/cuentas_corrientes", "El nombre del cliente es obligatorio."));
+  }
+
+  const inserted = await sql<{ id: number }>(
+    "INSERT INTO clientes (nombre, telefono, dni) VALUES (UPPER($1), $2, $3) RETURNING id",
+    [nombre, telefono, dni]
+  );
+
+  await safeAudit({
+    username: session.username,
+    action: "crear",
+    entityType: "cliente",
+    entityId: inserted.rows[0]?.id,
+    summary: `Creo el cliente ${nombre.toUpperCase()}.`
+  });
+  revalidatePath("/cuentas_corrientes");
+  redirect(buildSuccessRedirect("/cuentas_corrientes", "Cliente creado con exito."));
+}
+
+export async function updateClienteAction(formData: FormData) {
+  const session = await requireSession();
+  const { ensureCuentaCorrienteSchema } = await import("@/lib/data");
+  await ensureCuentaCorrienteSchema();
+  const clienteId = getNumber(formData, "cliente_id");
+  const nombre = getString(formData, "nombre");
+  const telefono = getString(formData, "telefono");
+  const dni = getString(formData, "dni");
+
+  await sql(
+    "UPDATE clientes SET nombre = UPPER($1), telefono = $2, dni = $3 WHERE id = $4",
+    [nombre, telefono, dni, clienteId]
+  );
+
+  await safeAudit({
+    username: session.username,
+    action: "editar",
+    entityType: "cliente",
+    entityId: clienteId,
+    summary: `Actualizo el cliente ${nombre.toUpperCase()}.`
+  });
+  revalidatePath("/cuentas_corrientes");
+  redirect(buildSuccessRedirect("/cuentas_corrientes", "Cliente actualizado con exito."));
+}
+
+export async function deleteClienteAction(formData: FormData) {
+  const session = await requireAdminSession();
+  const { ensureCuentaCorrienteSchema } = await import("@/lib/data");
+  await ensureCuentaCorrienteSchema();
+  const clienteId = getNumber(formData, "cliente_id");
+
+  const cliente = await sql<{ nombre: string }>(
+    "SELECT nombre FROM clientes WHERE id = $1 LIMIT 1",
+    [clienteId]
+  );
+
+  await sql("DELETE FROM clientes WHERE id = $1", [clienteId]);
+
+  await safeAudit({
+    username: session.username,
+    action: "eliminar",
+    entityType: "cliente",
+    entityId: clienteId,
+    summary: `Elimino el cliente ${cliente.rows[0]?.nombre ?? clienteId}.`
+  });
+  revalidatePath("/cuentas_corrientes");
+  revalidatePath("/dashboard");
+  revalidatePath("/caja");
+  redirect(buildSuccessRedirect("/cuentas_corrientes", "Cliente eliminado con exito."));
+}
+
+export async function registrarCargoAction(formData: FormData) {
+  const session = await requireSession();
+  const { ensureCuentaCorrienteSchema } = await import("@/lib/data");
+  await ensureCuentaCorrienteSchema();
+  const clienteId = getNumber(formData, "cliente_id");
+  const monto = getNumber(formData, "monto");
+  const descripcion = getString(formData, "descripcion");
+
+  if (monto <= 0) {
+    redirect(buildErrorRedirect("/cuentas_corrientes", "El monto debe ser mayor a 0."));
+  }
+
+  await sql(
+    "INSERT INTO cuenta_corriente_movimientos (cliente_id, tipo, monto, descripcion) VALUES ($1, 'cargo', $2, $3)",
+    [clienteId, monto, descripcion]
+  );
+
+  await safeAudit({
+    username: session.username,
+    action: "crear",
+    entityType: "cc_cargo",
+    entityId: clienteId,
+    summary: `Registro un cargo de ${monto} en cuenta corriente.`,
+    detail: JSON.stringify({ clienteId, monto, descripcion })
+  });
+  revalidatePath("/cuentas_corrientes");
+  revalidatePath("/dashboard");
+  revalidatePath("/caja");
+  redirect(buildSuccessRedirect("/cuentas_corrientes", "Cargo registrado con exito."));
+}
+
+export async function registrarPagoCCAction(formData: FormData) {
+  const session = await requireSession();
+  const { ensureCuentaCorrienteSchema } = await import("@/lib/data");
+  await ensureCuentaCorrienteSchema();
+  const clienteId = getNumber(formData, "cliente_id");
+  const monto = getNumber(formData, "monto");
+  const descripcion = getString(formData, "descripcion") || "Pago de cuenta corriente";
+  const tipoPago = getString(formData, "tipo_pago");
+
+  if (monto <= 0) {
+    redirect(buildErrorRedirect("/cuentas_corrientes", "El monto debe ser mayor a 0."));
+  }
+
+  await sql(
+    "INSERT INTO cuenta_corriente_movimientos (cliente_id, tipo, monto, descripcion, tipo_pago) VALUES ($1, 'pago', $2, $3, $4)",
+    [clienteId, monto, descripcion, tipoPago || null]
+  );
+
+  await safeAudit({
+    username: session.username,
+    action: "crear",
+    entityType: "cc_pago",
+    entityId: clienteId,
+    summary: `Registro un pago de ${monto} en cuenta corriente.`,
+    detail: JSON.stringify({ clienteId, monto, descripcion, tipoPago })
+  });
+  revalidatePath("/cuentas_corrientes");
+  revalidatePath("/dashboard");
+  revalidatePath("/caja");
+  redirect(buildSuccessRedirect("/cuentas_corrientes", "Pago registrado con exito."));
+}
+
+export async function deleteMovimientoCCAction(formData: FormData) {
+  const session = await requireAdminSession();
+  const { ensureCuentaCorrienteSchema } = await import("@/lib/data");
+  await ensureCuentaCorrienteSchema();
+  const movimientoId = getNumber(formData, "movimiento_id");
+
+  const mov = await sql<{ tipo: string; monto: string; descripcion: string; cliente_id: number }>(
+    "SELECT tipo, monto::text, descripcion, cliente_id FROM cuenta_corriente_movimientos WHERE id = $1 LIMIT 1",
+    [movimientoId]
+  );
+
+  await sql("DELETE FROM cuenta_corriente_movimientos WHERE id = $1", [movimientoId]);
+
+  await safeAudit({
+    username: session.username,
+    action: "eliminar",
+    entityType: "cc_movimiento",
+    entityId: movimientoId,
+    summary: `Elimino un movimiento de cuenta corriente.`,
+    detail: JSON.stringify(mov.rows[0] ?? null)
+  });
+  revalidatePath("/cuentas_corrientes");
+  revalidatePath("/dashboard");
+  revalidatePath("/caja");
+  redirect(buildSuccessRedirect("/cuentas_corrientes", "Movimiento eliminado con exito."));
+}

@@ -13,7 +13,7 @@ import { redirect } from "next/navigation";
 import { LineChart } from "@/components/line-chart";
 import { getHolidayWeekHighlights } from "@/lib/argentina-holidays";
 import { requireSession } from "@/lib/auth";
-import { getDashboard } from "@/lib/data";
+import { getDashboard, getTotalDeudaCuentasCorrientes, getPagosCuentaCorrientePeriodo } from "@/lib/data";
 import { endOfWeekInput, formatCurrency, startOfWeekInput, toInputDate } from "@/lib/utils";
 
 function formatPercent(value: number) {
@@ -39,7 +39,11 @@ export default async function DashboardPage({
   const today = toInputDate(new Date());
   const fechaDesde = params.fecha_desde ?? startOfWeekInput(today);
   const fechaHasta = params.fecha_hasta ?? endOfWeekInput(today);
-  const dashboard = await getDashboard(fechaDesde, fechaHasta);
+  const [dashboard, totalDeudaCC, pagosCCPeriodo] = await Promise.all([
+    getDashboard(fechaDesde, fechaHasta),
+    getTotalDeudaCuentasCorrientes(),
+    getPagosCuentaCorrientePeriodo(fechaDesde, fechaHasta)
+  ]);
   const ventasBase = dashboard.totalVentas || 1;
   const porcentajeEgresos = getPercent(dashboard.totalEgresos, ventasBase);
   const porcentajeCosto = getPercent(dashboard.totalCosto, ventasBase);

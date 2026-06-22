@@ -72,3 +72,21 @@ CREATE TABLE IF NOT EXISTS egresos (
   tipo_egreso TEXT NOT NULL DEFAULT 'general',
   equipo_id INTEGER NULL REFERENCES equipos(id) ON DELETE SET NULL
 );
+
+CREATE TABLE IF NOT EXISTS clientes (
+  id SERIAL PRIMARY KEY,
+  nombre TEXT NOT NULL,
+  telefono TEXT NOT NULL DEFAULT '',
+  dni TEXT NOT NULL DEFAULT '',
+  fecha_alta TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS cuenta_corriente_movimientos (
+  id SERIAL PRIMARY KEY,
+  cliente_id INTEGER NOT NULL REFERENCES clientes(id) ON DELETE CASCADE,
+  tipo TEXT NOT NULL,
+  monto NUMERIC(12, 2) NOT NULL,
+  descripcion TEXT NOT NULL DEFAULT '',
+  tipo_pago TEXT NULL,
+  fecha TIMESTAMP NOT NULL DEFAULT NOW()
+);

@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import {
   AlertTriangle,
   BarChart3,
+  BookOpen,
   Calculator,
   CreditCard,
   LayoutDashboard,
@@ -28,6 +29,7 @@ const links = [
   { href: "/agregar_stock", label: "Stock", Icon: Package },
   { href: "/ultimas_ventas", label: "Ultimas ventas", Icon: CreditCard },
   { href: "/egresos", label: "Egresos", Icon: Wallet },
+  { href: "/cuentas_corrientes", label: "Cuentas corrientes", Icon: BookOpen },
   { href: "/reparaciones", label: "Reparaciones", Icon: Wrench },
   { href: "/mercaderia_fallada", label: "Mercaderia fallada", Icon: XCircle },
   { href: "/productos_mas_vendidos", label: "Top productos", Icon: Star },

@@ -772,6 +772,14 @@ export async function getCaja(fechaDesde: string, fechaHasta: string, page = 1) 
   const ingresosTotales = Object.values(ingresosPorPago).reduce((sum, value) => sum + value, 0);
   const egresosTotales = Object.values(totalEgresosPorPago).reduce((sum, value) => sum + value, 0);
 
+
+  const pagosCCData = await getPagosCuentaCorrientePeriodo(fechaDesde, fechaHasta);
+  const pagosCCPorPago: Record<string, number> = {};
+  for (const row of pagosCCData) {
+    const key = normalizePaymentType(row.tipo_pago);
+    pagosCCPorPago[key] = (pagosCCPorPago[key] ?? 0) + Number(row.total);
+  }
+  const pagosCCPeriodo = Object.values(pagosCCPorPago).reduce((sum, value) => sum + value, 0);
   return {
     ...ventasInfo,
     egresos: paginatedEgresos.items,
@@ -786,6 +794,8 @@ export async function getCaja(fechaDesde: string, fechaHasta: string, page = 1) 
     totalNeto,
     ingresosPorPago,
     egresosPorPago: totalEgresosPorPago,
+    pagosCCPeriodo,
+    pagosCCPorPago,
     netoPorPago
   };
 }
@@ -1113,4 +1123,160 @@ export async function getMercaderiaFallada(page = 1) {
   );
 
   return paginateRows(rows);
+}
+
+export async function ensureCuentaCorrienteSchema() {
+  await sql(`
+    CREATE TABLE IF NOT EXISTS clientes (
+      id SERIAL PRIMARY KEY,
+      nombre TEXT NOT NULL,
+      telefono TEXT NOT NULL DEFAULT '',
+      dni TEXT NOT NULL DEFAULT '',
+      fecha_alta TIMESTAMP NOT NULL DEFAULT NOW()
+    )
+  `);
+  await sql(`
+    CREATE TABLE IF NOT EXISTS cuenta_corriente_movimientos (
+      id SERIAL PRIMARY KEY,
+      cliente_id INTEGER NOT NULL REFERENCES clientes(id) ON DELETE CASCADE,
+      tipo TEXT NOT NULL,
+      monto NUMERIC(12, 2) NOT NULL,
+      descripcion TEXT NOT NULL DEFAULT '',
+      tipo_pago TEXT NULL,
+      fecha TIMESTAMP NOT NULL DEFAULT NOW()
+    )
+  `);
+}
+
+export async function getCuentasCorrientes(busqueda?: string, page = 1) {
+  await ensureCuentaCorrienteSchema();
+  const offset = getOffset(page);
+
+  const searchCondition = busqueda
+    ? `WHERE c.nombre ILIKE $1 OR c.dni ILIKE $1 OR c.telefono ILIKE $1`
+    : "";
+  const params = busqueda
+    ? [`%${busqueda}%`, PAGE_SIZE + 1, offset]
+    : [PAGE_SIZE + 1, offset];
+
+  const { rows } = await sql<{
+    id: number;
+    nombre: string;
+    telefono: string;
+    dni: string;
+    fecha_alta: Date;
+    total_cargos: string;
+    total_pagos: string;
+    saldo: string;
+  }>(
+    `
+      SELECT
+        c.id,
+        c.nombre,
+        c.telefono,
+        c.dni,
+        c.fecha_alta,
+        COALESCE(SUM(CASE WHEN m.tipo = 'cargo' THEN m.monto ELSE 0 END), 0)::text AS total_cargos,
+        COALESCE(SUM(CASE WHEN m.tipo = 'pago' THEN m.monto ELSE 0 END), 0)::text AS total_pagos,
+        COALESCE(SUM(CASE WHEN m.tipo = 'cargo' THEN m.monto ELSE -m.monto END), 0)::text AS saldo
+      FROM clientes c
+      LEFT JOIN cuenta_corriente_movimientos m ON m.cliente_id = c.id
+      ${searchCondition}
+      GROUP BY c.id
+      ORDER BY saldo DESC, c.nombre ASC
+      LIMIT ${busqueda ? "$2" : "$1"} OFFSET ${busqueda ? "$3" : "$2"}
+    `,
+    params
+  );
+
+  const [totalDeuda] = await Promise.all([
+    sql<{ total: string }>(`
+      SELECT COALESCE(SUM(CASE WHEN tipo = 'cargo' THEN monto ELSE -monto END), 0)::text AS total
+      FROM cuenta_corriente_movimientos
+    `)
+  ]);
+
+  return {
+    ...paginateRows(rows),
+    totalDeuda: Number(totalDeuda.rows[0]?.total ?? 0)
+  };
+}
+
+export async function getClienteDetalle(clienteId: number, page = 1) {
+  await ensureCuentaCorrienteSchema();
+  const offset = getOffset(page);
+
+  const [cliente, movimientos, resumen] = await Promise.all([
+    sql<{
+      id: number;
+      nombre: string;
+      telefono: string;
+      dni: string;
+      fecha_alta: Date;
+    }>(
+      "SELECT id, nombre, telefono, dni, fecha_alta FROM clientes WHERE id = $1 LIMIT 1",
+      [clienteId]
+    ),
+    sql<{
+      id: number;
+      tipo: string;
+      monto: string;
+      descripcion: string;
+      tipo_pago: string | null;
+      fecha: Date;
+    }>(
+      `
+        SELECT id, tipo, monto::text, descripcion, tipo_pago, fecha
+        FROM cuenta_corriente_movimientos
+        WHERE cliente_id = $1
+        ORDER BY fecha DESC, id DESC
+        LIMIT $2 OFFSET $3
+      `,
+      [clienteId, PAGE_SIZE + 1, offset]
+    ),
+    sql<{ total_cargos: string; total_pagos: string; saldo: string }>(
+      `
+        SELECT
+          COALESCE(SUM(CASE WHEN tipo = 'cargo' THEN monto ELSE 0 END), 0)::text AS total_cargos,
+          COALESCE(SUM(CASE WHEN tipo = 'pago' THEN monto ELSE 0 END), 0)::text AS total_pagos,
+          COALESCE(SUM(CASE WHEN tipo = 'cargo' THEN monto ELSE -monto END), 0)::text AS saldo
+        FROM cuenta_corriente_movimientos
+        WHERE cliente_id = $1
+      `,
+      [clienteId]
+    )
+  ]);
+
+  return {
+    cliente: cliente.rows[0] ?? null,
+    ...paginateRows(movimientos.rows),
+    totalCargos: Number(resumen.rows[0]?.total_cargos ?? 0),
+    totalPagos: Number(resumen.rows[0]?.total_pagos ?? 0),
+    saldo: Number(resumen.rows[0]?.saldo ?? 0)
+  };
+}
+
+export async function getTotalDeudaCuentasCorrientes() {
+  await ensureCuentaCorrienteSchema();
+  const { rows } = await sql<{ total: string }>(`
+    SELECT COALESCE(SUM(CASE WHEN tipo = 'cargo' THEN monto ELSE -monto END), 0)::text AS total
+    FROM cuenta_corriente_movimientos
+  `);
+  return Number(rows[0]?.total ?? 0);
+}
+
+export async function getPagosCuentaCorrientePeriodo(fechaDesde: string, fechaHasta: string) {
+  await ensureCuentaCorrienteSchema();
+  const { rows } = await sql<{ tipo_pago: string; total: string }>(
+    `
+      SELECT
+        COALESCE(tipo_pago, 'sin definir') AS tipo_pago,
+        COALESCE(SUM(monto), 0)::text AS total
+      FROM cuenta_corriente_movimientos
+      WHERE tipo = 'pago' AND DATE(fecha) BETWEEN $1 AND $2
+      GROUP BY tipo_pago
+    `,
+    [fechaDesde, fechaHasta]
+  );
+  return rows;
 }
